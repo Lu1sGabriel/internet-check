@@ -52,7 +52,45 @@ FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect wi
            '<g fill="#fff"><rect x="5" y="13" width="3.4" height="6" rx="1"/><rect x="10.3" y="9" width="3.4" height="10" rx="1"/>'
            '<rect x="15.6" y="5" width="3.4" height="14" rx="1"/></g></svg>')
 
+# Sol que vira lua: a sombra desliza sobre o nucleo e os raios se recolhem (CSS em .tema-botao)
+ICONE_TEMA = """<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+  <mask id="lua"><rect width="24" height="24" fill="#fff"/><circle class="sombra" cx="17.5" cy="6.5" r="6.5" fill="#000"/></mask>
+  <circle class="nucleo" cx="12" cy="12" r="8" fill="currentColor" mask="url(#lua)"/>
+  <g class="raios" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <path d="M12 1.8v2.4M12 19.8v2.4M1.8 12h2.4M19.8 12h2.4M4.8 4.8l1.7 1.7M17.5 17.5l1.7 1.7M4.8 19.2l1.7-1.7M17.5 6.5l1.7-1.7"/>
+  </g>
+</svg>"""
+
 CSS = """
+/* Troca de tema: o tema novo e revelado por um circulo que cresce a partir do botao (animado no JS) */
+::view-transition { pointer-events: none; }
+html[data-theming]::view-transition-old(root), html[data-theming]::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html[data-theming] body, html[data-theming] .cartao { transition: none !important; animation: none !important; }
+
+/* Scroll: a barra nativa e substituida por um trilho fino (montado no JS), como no luis-dev-portfolio */
+* { scrollbar-width: thin; scrollbar-color: var(--borda-forte) transparent; }  /* barras internas (tabela, gaveta) */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
+.trilho { position: fixed; top: 72px; right: 6px; bottom: 12px; z-index: 2100; width: 2px; border-radius: 2px;
+          background: var(--borda-forte); pointer-events: none; opacity: .55; transition: opacity .4s ease; }
+.trilho[data-active] { opacity: 1; }
+.trilho[data-hidden] { opacity: 0; }
+.trilho span { position: absolute; inset: 0 0 auto; height: var(--thumb-size, 36px); border-radius: 2px; background: var(--azul);
+               transform: translate3d(0, var(--thumb-y, 0), 0); transition: height .25s ease; }
+
+.tema-botao { display: inline-grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 999px; cursor: pointer;
+              background: transparent; color: var(--tinta); transition: background-color .2s ease; }
+.tema-botao:hover { background: var(--borda); }
+.tema-botao svg { overflow: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.tema-botao:active svg { transform: scale(.88) rotate(-12deg); }
+.tema-botao .nucleo, .tema-botao .sombra, .tema-botao .raios { transform-box: fill-box; transform-origin: center;
+                                                               transition: transform 640ms cubic-bezier(.2,.8,.2,1); }
+.tema-botao .nucleo { transform: scale(.56); }                 /* escuro: mostra o sol */
+.tema-botao .sombra { transform: translate(9px, -9px); }
+body.body--light .tema-botao .nucleo { transform: scale(.9); } /* claro: mostra a lua */
+body.body--light .tema-botao .sombra { transform: none; }
+body.body--light .tema-botao .raios { transform: rotate(-90deg) scale(0); }
+
 body { --pagina: #0d0d0d; --superficie: #1a1a19; --lateral: #131312; --cabecalho: rgba(13,13,13,.72);
        --tinta: #f0efec; --tinta2: #c3c2b7; --mudo: #898781; --azul: #3987e5;
        --borda: rgba(255,255,255,.08); --borda-forte: rgba(255,255,255,.18); --sombra: 0 10px 30px rgba(0,0,0,.35); }
@@ -78,7 +116,7 @@ body, body.body--light, body.body--dark { background: var(--pagina); color: var(
 .painel { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 .painel.vai-dir { animation: entra-dir .45s cubic-bezier(.2,.8,.2,1); }
 .painel.vai-esq { animation: entra-esq .45s cubic-bezier(.2,.8,.2,1); }
-.painel.vai-dir .cartao, .painel.vai-esq .cartao { animation: none; }
+.painel.vai-dir .cartao, .painel.vai-esq .cartao, .painel.sem-entrada .cartao { animation: none; }
 @keyframes entra-dir { from { opacity: 0; transform: translateX(56px); } }
 @keyframes entra-esq { from { opacity: 0; transform: translateX(-56px); } }
 
@@ -131,8 +169,62 @@ body, body.body--light, body.body--dark { background: var(--pagina); color: var(
 
 # Faz os numeros dos KPIs contarem de 0 ate o valor sempre que um cartao novo entra na tela
 JS = """
+// Troca de tema com onda circular (View Transition), portada do luis-dev-portfolio.
+// O servidor redesenha os graficos, entao a transicao espera o aviso dele (__temaPronto) antes de revelar.
+let trocandoTema = false;
+function trocarTema() {
+  if (trocandoTema) return;
+  const escuro = !document.body.classList.contains('body--dark');
+  const aplicar = () => new Promise(ok => { window.__temaPronto = ok; emitEvent('tema', {escuro}); setTimeout(ok, 1500); })
+    .then(() => new Promise(ok => setTimeout(ok, 80)));  // folga para o Vue aplicar a classe e o canvas pintar
+  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) { aplicar(); return; }
+  const r = document.querySelector('.tema-botao').getBoundingClientRect();
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const raio = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  const raiz = document.documentElement;
+  trocandoTema = true;
+  raiz.dataset.theming = '';
+  const transicao = document.startViewTransition(aplicar);
+  transicao.ready.then(() => {
+    raiz.animate({clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`]},
+      {duration: 1000, easing: 'cubic-bezier(0.65, 0, 0.25, 1)', pseudoElement: '::view-transition-new(root)', fill: 'both'});
+    raiz.animate({filter: ['brightness(1)', 'brightness(0.72)']},
+      {duration: 1000, easing: 'ease-in', pseudoElement: '::view-transition-old(root)', fill: 'both'});
+  }).catch(() => {});
+  transicao.finished.finally(() => { delete raiz.dataset.theming; trocandoTema = false; });
+}
+
+// Trilho de scroll: o marcador mostra onde voce esta na pagina e acende enquanto rola.
+// So decorativo: a rolagem em si (roda, toque, teclado) continua nativa.
+document.addEventListener('DOMContentLoaded', () => {
+  const trilho = document.createElement('div');
+  trilho.className = 'trilho';
+  trilho.setAttribute('aria-hidden', 'true');
+  trilho.appendChild(document.createElement('span'));
+  document.body.appendChild(trilho);
+  let quadro = 0, parado = 0;
+  const atualizar = () => {
+    quadro = 0;
+    const doc = document.documentElement, max = doc.scrollHeight - innerHeight;
+    if (max <= 4) { trilho.dataset.hidden = ''; return; }
+    delete trilho.dataset.hidden;
+    const pista = trilho.clientHeight, tamanho = Math.max(36, innerHeight / doc.scrollHeight * pista);
+    trilho.style.setProperty('--thumb-size', tamanho.toFixed(1) + 'px');
+    trilho.style.setProperty('--thumb-y', (scrollY / max * (pista - tamanho)).toFixed(1) + 'px');
+  };
+  const aoRolar = () => {
+    if (!quadro) quadro = requestAnimationFrame(atualizar);
+    trilho.dataset.active = '';
+    clearTimeout(parado);
+    parado = setTimeout(() => delete trilho.dataset.active, 900);
+  };
+  atualizar();
+  new ResizeObserver(aoRolar).observe(document.body);
+  addEventListener('scroll', aoRolar, {passive: true});
+});
+
 function contar(el) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || 'theming' in document.documentElement.dataset) return;
   const fim = el.textContent, alvo = +el.dataset.alvo, t0 = performance.now();
   const passo = t => {
     const p = Math.min((t - t0) / 900, 1);
@@ -383,13 +475,19 @@ def pagina() -> None:
         agendamento.refresh()
 
     # ----- cabecalho -----
-    def alternar_tema() -> None:
-        modo.value = not modo.value
+    def ao_trocar_tema(e) -> None:
+        """Chamado pelo JS (trocarTema) de dentro da View Transition; avisa quando a pagina nova esta pronta."""
+        modo.value = bool(e.args["escuro"])
         cfg["tema"] = "escuro" if modo.value else "claro"
         salvar_cfg()
         aplicar_tema(modo.value)
-        botao_tema.props(f"icon={'light_mode' if modo.value else 'dark_mode'}")
-        painel.refresh()  # os graficos recebem as cores prontas, entao sao redesenhados
+        visto["slide"] = "sem-entrada"  # sem animacao de entrada nos cartoes e graficos: a onda ja e a transicao
+        BASE["animation"] = False
+        painel.refresh()           # os graficos recebem as cores prontas, entao sao redesenhados
+        BASE["animation"] = True
+        ui.run_javascript("window.__temaPronto && window.__temaPronto()")
+
+    ui.on("tema", ao_trocar_tema)
 
     with ui.header().classes("cabecalho items-center").classes(remove="text-white bg-primary"):
         ui.button(icon="menu", on_click=lambda: gaveta.toggle()).props("flat round dense color=grey-5") \
@@ -410,8 +508,9 @@ def pagina() -> None:
                     .tooltip("Remover agendamento")
 
         agendamento()
-        botao_tema = ui.button(icon="light_mode" if modo.value else "dark_mode", on_click=alternar_tema) \
-            .props("flat round dense color=grey-6").tooltip("Alternar tema claro/escuro")
+        with ui.element("button").classes("tema-botao").props('type=button aria-label="Alternar tema claro/escuro"') \
+                .on("click", js_handler="() => trocarTema()"):
+            ui.html(ICONE_TEMA, sanitize=False)
         botao_testar = ui.button("Testar agora", icon="play_arrow", on_click=testar).props("unelevated no-caps rounded")
 
     # ----- barra lateral -----
