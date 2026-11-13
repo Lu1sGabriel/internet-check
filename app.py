@@ -22,30 +22,57 @@ SEM_JANELA = subprocess.CREATE_NO_WINDOW
 SELETOR = ("import tkinter as tk, tkinter.filedialog as fd; r = tk.Tk(); r.withdraw(); "
            "r.attributes('-topmost', True); print(fd.askdirectory(title='Onde salvar as medições?'))")
 
-# Paleta (tema escuro): series em ordem fixa, cores de status reservadas para status
-PAGINA, SUPERFICIE, TINTA, TINTA2, MUDO, GRADE = "#0d0d0d", "#1a1a19", "#f0efec", "#c3c2b7", "#898781", "#2c2c2a"
-AZUL, LARANJA, VERDE = "#3987e5", "#d95926", "#199e70"
+# Paleta: series em ordem fixa, cores de status reservadas para status.
+# As cores da pagina ficam no CSS (variaveis); aqui ficam as que o ECharts precisa receber prontas.
+MUDO = "#898781"
 BOM, ALERTA, CRITICO = "#0ca30c", "#fab219", "#d03b3b"
+TEMAS = {
+    True: dict(PAGINA="#0d0d0d", SUPERFICIE="#1a1a19", TINTA="#f0efec", TINTA2="#c3c2b7", GRADE="#2c2c2a",
+               LINHA_EIXO="#383835", FUNDO_DICA="#232322", AZUL="#3987e5", LARANJA="#d95926", VERDE="#199e70"),
+    False: dict(PAGINA="#f4f4f1", SUPERFICIE="#ffffff", TINTA="#0b0b0b", TINTA2="#52514e", GRADE="#e1e0d9",
+                LINHA_EIXO="#c3c2b7", FUNDO_DICA="#ffffff", AZUL="#2a78d6", LARANJA="#eb6834", VERDE="#1baf7a"),
+}
+
+
+def aplicar_tema(escuro: bool) -> None:
+    # ponytail: paleta global do processo (app local, um usuario). Se virar multiusuario, passar por cliente.
+    g = globals()
+    g.update(TEMAS[escuro])
+    g["EIXO"] = {"axisLine": {"lineStyle": {"color": LINHA_EIXO}}, "axisTick": {"show": False},
+                 "axisLabel": {"color": MUDO}, "splitLine": {"lineStyle": {"color": GRADE}}}
+    g["EIXO_TEMPO"] = EIXO | {"type": "time", "splitLine": {"show": False}, "splitNumber": 5,
+                              "axisLabel": {"color": MUDO, "formatter": "{dd}/{MM} {HH}h", "hideOverlap": True}}
+    g["DICA"] = {"trigger": "axis", "backgroundColor": FUNDO_DICA, "borderColor": GRADE,
+                 "textStyle": {"color": TINTA, "fontSize": 13}, "axisPointer": {"lineStyle": {"color": MUDO}}}
+
+
+aplicar_tema(True)
 
 FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#3987e5"/>'
            '<g fill="#fff"><rect x="5" y="13" width="3.4" height="6" rx="1"/><rect x="10.3" y="9" width="3.4" height="10" rx="1"/>'
            '<rect x="15.6" y="5" width="3.4" height="14" rx="1"/></g></svg>')
 
 CSS = """
-body { background: #0d0d0d; color: #f0efec; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
-.q-header.cabecalho { background: rgba(13,13,13,.72); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.08);
+body { --pagina: #0d0d0d; --superficie: #1a1a19; --lateral: #131312; --cabecalho: rgba(13,13,13,.72);
+       --tinta: #f0efec; --tinta2: #c3c2b7; --mudo: #898781; --azul: #3987e5;
+       --borda: rgba(255,255,255,.08); --borda-forte: rgba(255,255,255,.18); --sombra: 0 10px 30px rgba(0,0,0,.35); }
+body.body--light { --pagina: #f4f4f1; --superficie: #ffffff; --lateral: #fbfbf9; --cabecalho: rgba(244,244,241,.78);
+       --tinta: #0b0b0b; --tinta2: #52514e; --mudo: #73716b; --azul: #2a78d6;
+       --borda: rgba(11,11,11,.10); --borda-forte: rgba(11,11,11,.22); --sombra: 0 10px 30px rgba(11,11,11,.10); }
+body, body.body--light, body.body--dark { background: var(--pagina); color: var(--tinta); transition: background .3s ease, color .3s ease; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+.q-header.cabecalho { color: var(--tinta); background: var(--cabecalho); backdrop-filter: blur(14px); border-bottom: 1px solid var(--borda);
                       padding: 10px 24px; gap: 12px; }
 .logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 20px;
-        background: linear-gradient(135deg, #3987e5, #1c5cab); color: #fff; }
+        background: linear-gradient(135deg, var(--azul), #1c5cab); color: #fff; }
 .titulo { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
-.q-drawer { background: #131312 !important; border-right: 1px solid rgba(255,255,255,.08); }
+.q-drawer { background: var(--lateral) !important; border-right: 1px solid var(--borda); }
 .lateral { padding: 20px 18px; gap: 10px; }
 .secao { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11px; font-weight: 600;
-         letter-spacing: .08em; text-transform: uppercase; color: #898781; }
+         letter-spacing: .08em; text-transform: uppercase; color: var(--mudo); }
 .secao .q-icon { font-size: 16px; }
-.caminho { font: 12px/1.5 "Cascadia Code", Consolas, monospace; color: #c3c2b7; word-break: break-all;
-           background: #1a1a19; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 10px 12px; width: 100%; }
-.nota { font-size: 12px; line-height: 1.5; color: #898781; }
+.caminho { font: 12px/1.5 "Cascadia Code", Consolas, monospace; color: var(--tinta2); word-break: break-all;
+           background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.nota { font-size: 12px; line-height: 1.5; color: var(--mudo); }
 
 .conteudo { padding: 24px; gap: 16px; max-width: 1500px; margin: 0 auto; width: 100%; overflow-x: clip; }
 .painel { display: flex; flex-direction: column; gap: 16px; width: 100%; }
@@ -55,48 +82,48 @@ body { background: #0d0d0d; color: #f0efec; font-family: "Segoe UI Variable Text
 @keyframes entra-dir { from { opacity: 0; transform: translateX(56px); } }
 @keyframes entra-esq { from { opacity: 0; transform: translateX(-56px); } }
 
-.periodo { background: #1a1a19; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; padding: 4px; }
-.periodo .q-tab { min-height: 34px; padding: 0 18px; border-radius: 999px; color: #898781; transition: color .25s ease; }
+.periodo { background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px; padding: 4px; }
+.periodo .q-tab { min-height: 34px; padding: 0 18px; border-radius: 999px; color: var(--mudo); transition: color .25s ease; }
 .periodo .q-tab--active { color: #fff; }
 .periodo .q-tab__content { position: relative; z-index: 1; }
 .periodo .q-tab__label { font-size: 13px; font-weight: 600; }
 .periodo .q-tab__indicator { height: 100%; border-radius: 999px; }
-.cartao { background: #1a1a19; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 18px 20px;
+.cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: 16px; padding: 18px 20px;
           animation: subir .55s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: calc(var(--i, 0) * 55ms);
           transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
-.cartao:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.18); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.cartao:hover { transform: translateY(-2px); border-color: var(--borda-forte); box-shadow: var(--sombra); }
 @keyframes subir { from { opacity: 0; transform: translateY(14px); } }
 
 .grade-topo { display: grid; grid-template-columns: minmax(280px, 1.15fr) repeat(3, 1fr); gap: 16px; width: 100%; }
 .destaque { grid-row: span 2; display: flex; flex-direction: column; align-items: center;
-            background: radial-gradient(120% 90% at 50% 0%, rgba(57,135,229,.14), transparent 60%), #1a1a19; }
+            background: radial-gradient(120% 90% at 50% 0%, rgba(57,135,229,.14), transparent 60%), var(--superficie); }
 .grade-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
 @media (max-width: 1100px) { .grade-topo { grid-template-columns: repeat(2, 1fr); } .destaque { grid-column: span 2; }
                              .grade-dupla { grid-template-columns: 1fr; } }
 
 .kpi-icone { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 20px; margin-bottom: 14px; }
-.kpi-rotulo { font-size: 13px; color: #c3c2b7; }
+.kpi-rotulo { font-size: 13px; color: var(--tinta2); }
 .kpi-valor { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
-.kpi-unidade { font-size: 14px; color: #898781; }
+.kpi-unidade { font-size: 14px; color: var(--mudo); }
 .cartao-titulo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-.cartao-titulo .q-icon { font-size: 19px; color: #898781; }
+.cartao-titulo .q-icon { font-size: 19px; color: var(--mudo); }
 .veredito { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
-.sub { font-size: 12.5px; color: #898781; text-align: center; margin-top: 6px; }
+.sub { font-size: 12.5px; color: var(--mudo); text-align: center; margin-top: 6px; }
 
-.selo { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c3c2b7; padding: 6px 12px;
-        border: 1px solid rgba(255,255,255,.1); border-radius: 999px; }
-.ponto { width: 8px; height: 8px; border-radius: 50%; background: #898781; }
+.selo { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tinta2); padding: 6px 12px;
+        border: 1px solid var(--borda); border-radius: 999px; }
+.ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--mudo); }
 .ponto.ativo { background: #0ca30c; animation: pulso 1.8s ease-out infinite; }
 @keyframes pulso { from { box-shadow: 0 0 0 0 rgba(12,163,12,.65); } to { box-shadow: 0 0 0 9px rgba(12,163,12,0); } }
 
-.q-table__card { background: transparent !important; box-shadow: none !important; color: #f0efec; }
-.q-table th { color: #898781; font-weight: 600; }
-.q-table td, .q-table th { border-color: rgba(255,255,255,.07) !important; font-variant-numeric: tabular-nums; }
+.q-table__card { background: transparent !important; box-shadow: none !important; color: var(--tinta); }
+.q-table th { color: var(--mudo); font-weight: 600; }
+.q-table td, .q-table th { border-color: var(--borda) !important; font-variant-numeric: tabular-nums; }
 .q-table tbody tr { transition: background .15s ease; }
-.link-prova { color: #3987e5; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.link-prova { color: var(--azul); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
 .link-prova:hover { text-decoration: underline; }
 .vazio { align-items: center; text-align: center; padding: 70px 20px; gap: 12px; }
-.vazio .q-icon { font-size: 56px; color: #3987e5; animation: flutuar 3s ease-in-out infinite; }
+.vazio .q-icon { font-size: 56px; color: var(--azul); animation: flutuar 3s ease-in-out infinite; }
 @keyframes flutuar { 50% { transform: translateY(-8px); } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -182,12 +209,6 @@ def medir_seguro() -> dict:
 
 # ---------- Graficos (ECharts) ----------
 
-EIXO = {"axisLine": {"lineStyle": {"color": "#383835"}}, "axisTick": {"show": False},
-        "axisLabel": {"color": MUDO}, "splitLine": {"lineStyle": {"color": GRADE}}}
-EIXO_TEMPO = EIXO | {"type": "time", "splitLine": {"show": False}, "splitNumber": 5,
-                     "axisLabel": {"color": MUDO, "formatter": "{dd}/{MM} {HH}h", "hideOverlap": True}}
-DICA = {"trigger": "axis", "backgroundColor": "#232322", "borderColor": "rgba(255,255,255,.12)",
-        "textStyle": {"color": TINTA, "fontSize": 13}, "axisPointer": {"lineStyle": {"color": MUDO}}}
 BASE = {"backgroundColor": "transparent", "textStyle": {"fontFamily": "Segoe UI, system-ui, sans-serif"},
         "animationDuration": 1100, "animationEasing": "cubicOut"}
 
@@ -220,9 +241,9 @@ def grafico_tempo(ok: list[dict], falhas: list[dict], contratado: float) -> dict
         "xAxis": EIXO_TEMPO,
         "yAxis": EIXO | {"type": "value", "name": "Mbps", "nameTextStyle": {"color": MUDO}, "max": max(contratado, *(m["upload_mbps"] or 0 for m in ok), *(m["download_mbps"] for m in ok))},
         "dataZoom": [{"type": "inside"},
-                     {"type": "slider", "height": 18, "bottom": 12, "borderColor": "transparent", "backgroundColor": "#232322",
+                     {"type": "slider", "height": 18, "bottom": 12, "borderColor": "transparent", "backgroundColor": GRADE,
                       "fillerColor": "rgba(57,135,229,.22)", "handleStyle": {"color": AZUL}, "textStyle": {"color": MUDO},
-                      "dataBackground": {"lineStyle": {"color": "#383835"}, "areaStyle": {"color": "#2c2c2a"}}}],
+                      "dataBackground": {"lineStyle": {"color": LINHA_EIXO}, "areaStyle": {"color": LINHA_EIXO}}}],
         "series": [serie("Download", "download_mbps", AZUL, areaStyle=degrade(AZUL), markLine=regua(contratado, quedas)),
                    serie("Upload", "upload_mbps", LARANJA)],
     }
@@ -302,8 +323,11 @@ def secao(icone: str, texto: str) -> None:
 def pagina() -> None:
     ui.add_css(CSS)
     ui.add_head_html(f"<script>{JS}</script>")
-    ui.colors(primary=AZUL, positive=BOM, negative=CRITICO, warning=ALERTA, dark=SUPERFICIE, dark_page=PAGINA)
+    ui.colors(primary=TEMAS[True]["AZUL"], positive=BOM, negative=CRITICO, warning=ALERTA,
+              dark=TEMAS[True]["SUPERFICIE"], dark_page=TEMAS[True]["PAGINA"])
     cfg = medir.config()
+    modo = ui.dark_mode(value=cfg.get("tema", "escuro") == "escuro")
+    aplicar_tema(modo.value)
     visto = {"mtime": None, "periodo": "Tudo", "slide": ""}
 
     def salvar_cfg() -> None:
@@ -359,7 +383,15 @@ def pagina() -> None:
         agendamento.refresh()
 
     # ----- cabecalho -----
-    with ui.header().classes("cabecalho items-center"):
+    def alternar_tema() -> None:
+        modo.value = not modo.value
+        cfg["tema"] = "escuro" if modo.value else "claro"
+        salvar_cfg()
+        aplicar_tema(modo.value)
+        botao_tema.props(f"icon={'light_mode' if modo.value else 'dark_mode'}")
+        painel.refresh()  # os graficos recebem as cores prontas, entao sao redesenhados
+
+    with ui.header().classes("cabecalho items-center").classes(remove="text-white bg-primary"):
         ui.button(icon="menu", on_click=lambda: gaveta.toggle()).props("flat round dense color=grey-5") \
             .tooltip("Configurações")
         with ui.element("div").classes("logo"):
@@ -378,6 +410,8 @@ def pagina() -> None:
                     .tooltip("Remover agendamento")
 
         agendamento()
+        botao_tema = ui.button(icon="light_mode" if modo.value else "dark_mode", on_click=alternar_tema) \
+            .props("flat round dense color=grey-6").tooltip("Alternar tema claro/escuro")
         botao_testar = ui.button("Testar agora", icon="play_arrow", on_click=testar).props("unelevated no-caps rounded")
 
     # ----- barra lateral -----
@@ -484,7 +518,7 @@ def pagina() -> None:
                     ("quando", "Data/hora", "left"), ("download", "Download (Mbps)", "right"), ("upload", "Upload (Mbps)", "right"),
                     ("ping", "Ping (ms)", "right"), ("jitter", "Jitter (ms)", "right"), ("perda", "Perda (%)", "right"),
                     ("servidor", "Servidor", "left"), ("url", "Comprovante", "left")]]
-                tabela = ui.table(rows=linhas, columns=colunas, pagination=10).props("flat dark").classes("w-full")
+                tabela = ui.table(rows=linhas, columns=colunas, pagination=10).props("flat").classes("w-full")
                 tabela.add_slot("body-cell-url", '''
                     <q-td :props="props">
                         <a v-if="props.value" :href="props.value" target="_blank" class="link-prova">
