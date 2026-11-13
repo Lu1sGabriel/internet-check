@@ -47,6 +47,39 @@ Outros controles:
 - **Testar agora** (canto superior direito): faz uma medição na hora. Leva uns 30 segundos.
 - **Remover agendamento:** ícone de calendário ao lado do status no cabeçalho, visível quando há agendamento ativo.
 - **Hoje / 7 dias / 30 dias / Tudo:** filtra o período mostrado.
+- **Tema claro/escuro:** botão de sol/lua no cabeçalho.
+
+## Configuração
+
+Tudo se configura pelo painel; não é preciso editar arquivos. As escolhas ficam salvas no `config.json`, na pasta do programa, e valem nas próximas aberturas.
+
+| O que | Onde no painel | Padrão |
+|---|---|---|
+| Velocidade contratada (Mbps, só números inteiros) | Barra lateral, **Plano contratado** | 600 |
+| Pasta onde o `medicoes.csv` é salvo | Barra lateral, **Escolher pasta** | Pasta do programa |
+| Intervalo entre medições (de 5 minutos a 12 horas) | Barra lateral, **Agendamento** | 30 minutos |
+| Tema claro ou escuro | Botão de sol/lua no cabeçalho | Escuro |
+
+Detalhes:
+
+- **Trocar a pasta não exige reagendar.** A medição agendada lê a pasta do `config.json` a cada execução.
+- **Trocar o intervalo:** escolha o novo valor e clique em **Agendar no Windows** de novo; o agendamento anterior é substituído.
+- **O agendamento fica no Windows**, não no `config.json`. É uma tarefa chamada `InternetCheck` no Agendador de Tarefas, criada para rodar também na bateria.
+- **Mover a pasta do programa** quebra o agendamento, que guarda o caminho antigo. Depois de mover, abra o painel e clique em **Agendar no Windows** outra vez.
+
+Exemplo de `config.json`:
+
+```json
+{
+  "pasta": "D:\\Medicoes",
+  "contratado": 600,
+  "tema": "escuro"
+}
+```
+
+Para voltar ao padrão, apague o `config.json`.
+
+A porta do painel (8501) é fixa; para mudar, altere `port=8501` no fim do `app.py`.
 
 ## O que o painel mostra
 
@@ -69,7 +102,7 @@ O painel se atualiza sozinho quando chega uma medição nova.
 ## Onde ficam os dados
 
 - `medicoes.csv`: uma linha por medição, na pasta escolhida no painel (por padrão, a pasta do programa). Abre no Excel ou no Power BI.
-- `config.json`: a pasta escolhida e a velocidade contratada. Fica na pasta do programa.
+- `config.json`: a pasta escolhida, a velocidade contratada e o tema. Fica na pasta do programa.
 
 Os dois arquivos são locais de cada máquina e não vão para o repositório.
 
